@@ -1,0 +1,41 @@
+{
+  "team_id": "FILL_ME_team_id",
+  "domain": "autonomous_ai_agents",
+  "language_scope": ["en"],
+  "african_alpha_claim": false,
+  "budget_laptop_claim": true,
+  "submitter": {
+    "name": "FILL_ME_full_name",
+    "email": "FILL_ME_email@domain.com",
+    "github_handle": "FILL_ME_github_handle"
+  },
+  "cross_disciplinary_pairing": {
+    "discipline": "finance",
+    "load_bearing": true,
+    "description": "Shtrader LA is an offline-first trading intelligence agent. It pairs local language-model reasoning with deterministic financial risk mathematics (position sizing, risk/reward, account risk limits) so retail traders in low-connectivity, low-budget environments can analyse trade ideas and enforce risk discipline entirely on an 8 GB laptop. The finance discipline is load-bearing: every numeric result is produced by audited deterministic tools, not by the model, and the agent is prohibited from executing trades."
+  },
+  "test_prompts": [
+    {
+      "prompt_id": "tp_001",
+      "prompt": "My account balance is $1,000 and I risk 1% per trade. I want to buy EUR/USD near 1.0800 with a stop loss at 1.0750 and a take profit at 1.0950. Analyse this trade idea: give me the risk/reward ratio, the capital at risk, whether the setup meets a minimum 2:1 requirement, and the main risks I should watch."
+    },
+    {
+      "prompt_id": "tp_002",
+      "prompt": "Build me a structured trading plan for swing-trading Bitcoin with a $2,000 account and a maximum 2% risk per trade and 6% daily drawdown limit. Include entry criteria, invalidation rules, position sizing method, and the exact checks I must run before I place any order."
+    }
+  ],
+  "model": {
+    "name": "Llama-3.2-3B-Instruct-Q4_K_M",
+    "runtime": "llama.cpp",
+    "quantization": "GGUF Q4_K_M",
+    "parameters_estimate": "3.2B",
+    "packaging": "binary_bundle"
+  },
+  "_runtime": {
+    "context_size": 4096,
+    "threads": 4,
+    "gpu_layers": 0,
+    "entrypoint": "python -m shtrader_la.app.cli",
+    "offline": true
+  }
+}
