@@ -4,6 +4,17 @@ Rules first, model second. Regex classification is free, deterministic and
 testable; the LLM is only consulted when the rules are genuinely ambiguous, and
 its answer is constrained to the known Intent set. The router never computes
 numbers and never calls tools.
+
+Classification combines four independent signal groups:
+
+* topic keywords      -> which subject the trader is talking about
+* conceptual language -> "what is", "explain", "teach me" (educational intent)
+* action language     -> "calculate", "analyse", "size" (compute intent)
+* numeric signals     -> price levels, risk percentages, account balances
+
+A conceptual query with no numbers and no action verb is a KNOWLEDGE_QUERY even
+when its topic keyword ("risk reward") belongs to another intent. As soon as
+levels or an action verb appear, the topic intent wins again.
 """
 
 from __future__ import annotations
@@ -21,6 +32,24 @@ _PRICE_LEVEL = re.compile(
 )
 _RISK_PERCENT = re.compile(r"\d+(?:\.\d+)?\s*%", re.IGNORECASE)
 _MONEY = re.compile(r"[$€£₦]\s?\d|(?:\d[\d,]*)\s*(?:usd|eur|gbp|ngn|kes|zar)\b", re.IGNORECASE)
+_NUMBER = re.compile(r"\d")
+
+# Educational / definitional phrasing.
+_CONCEPTUAL = re.compile(
+    r"(?:^|\b)(?:what\s+(?:is|are|does|do)|whats|what's|explain|explanation\s+of|"
+    r"define|definition\s+of|teach\s+me|tell\s+me\s+about|meaning\s+of|"
+    r"difference\s+between|how\s+does|how\s+do|why\s+does|why\s+do|"
+    r"learn\s+about|introduction\s+to)\b",
+    re.IGNORECASE,
+)
+
+# Compute / evaluate phrasing.
+_ACTION = re.compile(
+    r"\b(?:calculate|calc|compute|work\s+out|size|sizing|size\s+me|how\s+many|"
+    r"how\s+much\s+(?:should|to|can)|analyse|analyze|review|evaluate|assess|"
+    r"check\s+this|rate\s+this|build\s+me|give\s+me\s+a\s+plan)\b",
+    re.IGNORECASE,
+)
 
 _KEYWORDS: Dict[Intent, List[str]] = {
     Intent.POSITION_SIZING: [
@@ -64,6 +93,41 @@ class RouteDecision:
         }
 
 
+@dataclass
+class Signals:
+    conceptual: bool
+    action: bool
+    levels: bool
+    percent: bool
+    money: bool
+    numbers: bool
+
+    @property
+    def computational(self) -> bool:
+        """True when the message asks for (or supplies data for) a calculation."""
+        return self.action or self.levels or (self.percent and self.money)
+
+    def to_dict(self) -> Dict[str, bool]:
+        return {
+            "conceptual": self.conceptual,
+            "action": self.action,
+            "price_levels": self.levels,
+            "risk_percent": self.percent,
+            "money": self.money,
+        }
+
+
+def extract_signals(text: str) -> Signals:
+    return Signals(
+        conceptual=bool(_CONCEPTUAL.search(text)),
+        action=bool(_ACTION.search(text)),
+        levels=bool(_PRICE_LEVEL.search(text)),
+        percent=bool(_RISK_PERCENT.search(text)),
+        money=bool(_MONEY.search(text)),
+        numbers=bool(_NUMBER.search(text)),
+    )
+
+
 class Router:
     """Classify a user query into an :class:`Intent`.
 
@@ -82,7 +146,15 @@ class Router:
         if not text:
             return RouteDecision(Intent.GENERAL_TRADING, 0.0, "fallback", [])
 
-        rules = self._rule_scores(text)
+        signals = extract_signals(text)
+
+        # Educational question with nothing to compute -> knowledge retrieval.
+        if signals.conceptual and not signals.computational:
+            return RouteDecision(
+                Intent.KNOWLEDGE_QUERY, 0.9, "rules", ["conceptual question"]
+            )
+
+        rules = self._rule_scores(text, signals)
         if rules:
             intent, score, matched = rules[0]
             runner_up = rules[1][1] if len(rules) > 1 else 0.0
@@ -100,30 +172,37 @@ class Router:
 
     # -- internals ---------------------------------------------------------
 
-    def _rule_scores(self, text: str):
+    def _rule_scores(self, text: str, signals: Optional[Signals] = None):
         lowered = text.lower()
+        signals = signals or extract_signals(text)
         scores: Dict[Intent, float] = {}
         matched: Dict[Intent, List[str]] = {}
+
+        def bump(intent: Intent, amount: float, label: Optional[str] = None) -> None:
+            scores[intent] = scores.get(intent, 0.0) + amount
+            if label:
+                matched.setdefault(intent, []).append(label)
 
         for intent, phrases in _KEYWORDS.items():
             for phrase in phrases:
                 if phrase in lowered:
-                    scores[intent] = scores.get(intent, 0.0) + 1.0
-                    matched.setdefault(intent, []).append(phrase)
+                    # Generic conceptual openers only count when the message is
+                    # not asking for a computation.
+                    if intent is Intent.KNOWLEDGE_QUERY and signals.computational:
+                        continue
+                    bump(intent, 1.0, phrase)
 
-        has_levels = bool(_PRICE_LEVEL.search(text))
-        has_percent = bool(_RISK_PERCENT.search(text))
-        has_money = bool(_MONEY.search(text))
-
-        if has_levels:
-            scores[Intent.TRADE_ANALYSIS] = scores.get(Intent.TRADE_ANALYSIS, 0.0) + 1.5
-            matched.setdefault(Intent.TRADE_ANALYSIS, []).append("price levels")
-        if has_percent and has_money:
-            scores[Intent.RISK_CALCULATION] = scores.get(Intent.RISK_CALCULATION, 0.0) + 1.0
-            matched.setdefault(Intent.RISK_CALCULATION, []).append("balance + risk %")
+        if signals.levels:
+            bump(Intent.TRADE_ANALYSIS, 1.5, "price levels")
+        if signals.percent and signals.money:
+            bump(Intent.RISK_CALCULATION, 1.0, "balance + risk %")
         # A full setup (levels + balance + risk) is an analysis, not a bare calc.
-        if has_levels and has_percent:
-            scores[Intent.TRADE_ANALYSIS] = scores.get(Intent.TRADE_ANALYSIS, 0.0) + 0.75
+        if signals.levels and signals.percent:
+            bump(Intent.TRADE_ANALYSIS, 0.75)
+        # Conceptual phrasing that still carries numbers stays computational,
+        # but keep a small educational weight so mixed questions can surface docs.
+        if signals.conceptual and signals.computational:
+            bump(Intent.KNOWLEDGE_QUERY, 0.25, "conceptual phrasing")
 
         if not scores:
             return []
