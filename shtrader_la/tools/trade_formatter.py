@@ -15,13 +15,14 @@ from .base import Tool
 _BUY_WORDS = r"(?:buy|long|bullish|bid)"
 _SELL_WORDS = r"(?:sell|short|bearish|ask)"
 
-_SYMBOL_PATTERNS = [
-    r"\b([A-Z]{3}\s?/\s?[A-Z]{3})\b",            # EUR/USD, EUR USD
-    r"\b([A-Z]{2,10}[-/][A-Z]{2,10})\b",         # BTC-USD, XAU/USD
-    r"\b(BTC|ETH|SOL|XRP|ADA|MATIC|BNB|DOGE|AVAX|LINK)\b",
-    r"\b(XAUUSD|XAGUSD|US30|NAS100|SPX500|GER40)\b",
-    r"\b([A-Z]{6})\b",                            # EURUSD
-]
+_FIAT = {"USD", "EUR", "GBP", "JPY", "CHF", "AUD", "NZD", "CAD", "NGN", "ZAR", "KES"}
+_STABLE = {"USDT", "USDC", "BUSD", "DAI"}
+_QUOTES = _FIAT | _STABLE
+_CRYPTO = {"BTC", "ETH", "SOL", "XRP", "ADA", "MATIC", "BNB", "DOGE", "AVAX", "LINK", "DOT", "LTC"}
+_METALS = {"XAU", "XAG", "XPT"}
+_TICKERS = {"XAUUSD", "XAGUSD", "US30", "NAS100", "SPX500", "GER40", "UK100", "JP225"}
+_BASES = _FIAT | _CRYPTO | _METALS
+
 
 _NUM = r"(-?\d+(?:[.,]\d+)?)"
 
