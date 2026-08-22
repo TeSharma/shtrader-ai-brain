@@ -88,16 +88,8 @@ def parse_trade_text(text: str) -> TradeIdea:
         idea.side = Side.SELL
 
     # --- symbol -------------------------------------------------------------
-    blocklist = {"STOP", "ENTRY", "PRICE", "TARGET", "RISK", "TRADE", "SHORT", "LEVELS"}
-    for pattern in _SYMBOL_PATTERNS:
-        for match in re.finditer(pattern, upper):
-            candidate = match.group(1).replace(" ", "")
-            if candidate in blocklist:
-                continue
-            idea.symbol = _normalize_symbol(candidate)
-            break
-        if idea.symbol:
-            break
+    idea.symbol = extract_symbol(text)
+
 
     # --- prices -------------------------------------------------------------
     idea.stop_loss = _find(
