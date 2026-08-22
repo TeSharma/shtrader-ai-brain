@@ -77,7 +77,7 @@ class TradePlanParser(Tool):
 def parse_trade_text(text: str) -> TradeIdea:
     """Extract a TradeIdea from prose. Returns partially-filled ideas."""
     idea = TradeIdea(notes=text.strip())
-    upper = text.upper()
+
 
     # --- side ---------------------------------------------------------------
     buy_at = re.search(_BUY_WORDS, text, re.IGNORECASE)
