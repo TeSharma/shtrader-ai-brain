@@ -221,6 +221,10 @@ class Router:
             bump(Intent.TRADE_ANALYSIS, 1.5, "price levels")
         if signals.percent and signals.money:
             bump(Intent.RISK_CALCULATION, 1.0, "balance + risk %")
+        # "how much am I risking" style quantity questions with numbers present.
+        if signals.risk_quantity and (signals.percent or signals.money) and not signals.levels:
+            bump(Intent.RISK_CALCULATION, 1.0, "risk quantity question")
+
         # A full setup (levels + balance + risk) is an analysis, not a bare calc.
         if signals.levels and signals.percent:
             bump(Intent.TRADE_ANALYSIS, 0.75)
