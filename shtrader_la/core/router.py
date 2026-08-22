@@ -31,8 +31,24 @@ _PRICE_LEVEL = re.compile(
     re.IGNORECASE,
 )
 _RISK_PERCENT = re.compile(r"\d+(?:\.\d+)?\s*%", re.IGNORECASE)
-_MONEY = re.compile(r"[$€£₦]\s?\d|(?:\d[\d,]*)\s*(?:usd|eur|gbp|ngn|kes|zar)\b", re.IGNORECASE)
+_MONEY = re.compile(
+    r"[$€£₦]\s?\d"
+    r"|(?:\d[\d,]*(?:\.\d+)?)\s*(?:usd|eur|gbp|ngn|kes|zar|k\b)"
+    # bare balance: "a 5000 account", "account of 10,000", "balance 2500"
+    r"|(?:\d[\d,]{2,}(?:\.\d+)?)\s*(?:dollar|usd)?\s*(?:account|balance|capital|equity|portfolio)"
+    r"|(?:account|balance|capital|equity|portfolio)\D{0,10}?\d[\d,]{2,}",
+    re.IGNORECASE,
+)
 _NUMBER = re.compile(r"\d")
+
+# Phrasing that asks "how much am I risking" — a quantity question, not a concept.
+_RISK_QUANTITY = re.compile(
+    r"\b(?:my\s+(?:max(?:imum)?\s+)?risk|am\s+i\s+risking|risking|risk\s+amount|"
+    r"max(?:imum)?\s+risk|capital\s+at\s+risk|how\s+much\s+money|how\s+much\s+(?:do\s+)?i\s+risk|"
+    r"\d+(?:\.\d+)?\s*%\s*risk|risk\s+of\s+\d|risk\s+per\s+trade)\b",
+    re.IGNORECASE,
+)
+
 
 # Educational / definitional phrasing.
 _CONCEPTUAL = re.compile(
@@ -101,11 +117,17 @@ class Signals:
     percent: bool
     money: bool
     numbers: bool
+    risk_quantity: bool = False
 
     @property
     def computational(self) -> bool:
         """True when the message asks for (or supplies data for) a calculation."""
-        return self.action or self.levels or (self.percent and self.money)
+        return (
+            self.action
+            or self.levels
+            or (self.percent and self.money)
+            or (self.risk_quantity and self.numbers)
+        )
 
     def to_dict(self) -> Dict[str, bool]:
         return {
@@ -114,6 +136,7 @@ class Signals:
             "price_levels": self.levels,
             "risk_percent": self.percent,
             "money": self.money,
+            "risk_quantity": self.risk_quantity,
         }
 
 
@@ -125,7 +148,9 @@ def extract_signals(text: str) -> Signals:
         percent=bool(_RISK_PERCENT.search(text)),
         money=bool(_MONEY.search(text)),
         numbers=bool(_NUMBER.search(text)),
+        risk_quantity=bool(_RISK_QUANTITY.search(text)),
     )
+
 
 
 class Router:
@@ -196,6 +221,10 @@ class Router:
             bump(Intent.TRADE_ANALYSIS, 1.5, "price levels")
         if signals.percent and signals.money:
             bump(Intent.RISK_CALCULATION, 1.0, "balance + risk %")
+        # "how much am I risking" style quantity questions with numbers present.
+        if signals.risk_quantity and (signals.percent or signals.money) and not signals.levels:
+            bump(Intent.RISK_CALCULATION, 1.0, "risk quantity question")
+
         # A full setup (levels + balance + risk) is an analysis, not a bare calc.
         if signals.levels and signals.percent:
             bump(Intent.TRADE_ANALYSIS, 0.75)
