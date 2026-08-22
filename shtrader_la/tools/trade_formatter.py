@@ -123,11 +123,60 @@ def parse_trade_text(text: str) -> TradeIdea:
     return idea
 
 
+def extract_symbol(text: str) -> Optional[str]:
+    """Return a supported market symbol, or None.
+
+    Only real market symbols are recognized: a pair whose base and quote are both
+    known codes (EUR/USD, EURUSD, BTC/USDT), a known index/metal ticker, or a
+    bare crypto/metal ticker written in uppercase (BTC). Ordinary English words
+    can never produce a symbol, so prose such as "market structure" or
+    "risk reward" yields None instead of a fabricated pair.
+    """
+    if not text:
+        return None
+
+    # 1. Explicit separator or space: EUR/USD, BTC-USDT, EUR USD, XAU / USD.
+    for match in re.finditer(r"\b([A-Za-z]{2,5})\s*[/-]\s*([A-Za-z]{2,5})\b", text):
+        pair = _pair(match.group(1), match.group(2))
+        if pair:
+            return pair
+    for match in re.finditer(r"\b([A-Za-z]{3})\s+([A-Za-z]{3})\b", text):
+        pair = _pair(match.group(1), match.group(2))
+        if pair:
+            return pair
+
+    # 2. Known composite tickers and concatenated pairs: XAUUSD, EURUSD, BTCUSDT.
+    for match in re.finditer(r"\b([A-Za-z]{5,10}|[A-Za-z]{2,5}\d{2,3})\b", text):
+        token = match.group(1).upper()
+        if token in _TICKERS:
+            return token
+        for cut in (3, 4):
+            pair = _pair(token[:cut], token[cut:])
+            if pair:
+                return pair
+
+    # 3. Bare crypto/metal ticker — uppercase only, so the English word "link"
+    #    never becomes LINK/USD.
+    for match in re.finditer(r"\b([A-Z]{3,5})\b", text):
+        token = match.group(1)
+        if token in _CRYPTO or token in _METALS:
+            return f"{token}/USD"
+    return None
+
+
+def _pair(base: str, quote: str) -> Optional[str]:
+    base, quote = base.upper(), quote.upper()
+    if base in _BASES and quote in _QUOTES and base != quote:
+        return f"{base}/{quote}"
+    return None
+
+
 def _normalize_symbol(candidate: str) -> str:
     """EURUSD -> EUR/USD; BTC -> BTC/USD; leave indices and metals alone."""
-    known_indices = {"XAUUSD", "XAGUSD", "US30", "NAS100", "SPX500", "GER40"}
-    if candidate in known_indices:
+    candidate = candidate.upper().replace(" ", "")
+    if candidate in _TICKERS:
         return candidate
+
     if "/" in candidate or "-" in candidate:
         return candidate.replace("-", "/")
     if len(candidate) == 6:
