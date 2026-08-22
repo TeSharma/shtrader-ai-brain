@@ -117,11 +117,17 @@ class Signals:
     percent: bool
     money: bool
     numbers: bool
+    risk_quantity: bool = False
 
     @property
     def computational(self) -> bool:
         """True when the message asks for (or supplies data for) a calculation."""
-        return self.action or self.levels or (self.percent and self.money)
+        return (
+            self.action
+            or self.levels
+            or (self.percent and self.money)
+            or (self.risk_quantity and self.numbers)
+        )
 
     def to_dict(self) -> Dict[str, bool]:
         return {
@@ -130,6 +136,7 @@ class Signals:
             "price_levels": self.levels,
             "risk_percent": self.percent,
             "money": self.money,
+            "risk_quantity": self.risk_quantity,
         }
 
 
@@ -141,7 +148,9 @@ def extract_signals(text: str) -> Signals:
         percent=bool(_RISK_PERCENT.search(text)),
         money=bool(_MONEY.search(text)),
         numbers=bool(_NUMBER.search(text)),
+        risk_quantity=bool(_RISK_QUANTITY.search(text)),
     )
+
 
 
 class Router:
