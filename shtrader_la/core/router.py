@@ -31,8 +31,24 @@ _PRICE_LEVEL = re.compile(
     re.IGNORECASE,
 )
 _RISK_PERCENT = re.compile(r"\d+(?:\.\d+)?\s*%", re.IGNORECASE)
-_MONEY = re.compile(r"[$€£₦]\s?\d|(?:\d[\d,]*)\s*(?:usd|eur|gbp|ngn|kes|zar)\b", re.IGNORECASE)
+_MONEY = re.compile(
+    r"[$€£₦]\s?\d"
+    r"|(?:\d[\d,]*(?:\.\d+)?)\s*(?:usd|eur|gbp|ngn|kes|zar|k\b)"
+    # bare balance: "a 5000 account", "account of 10,000", "balance 2500"
+    r"|(?:\d[\d,]{2,}(?:\.\d+)?)\s*(?:dollar|usd)?\s*(?:account|balance|capital|equity|portfolio)"
+    r"|(?:account|balance|capital|equity|portfolio)\D{0,10}?\d[\d,]{2,}",
+    re.IGNORECASE,
+)
 _NUMBER = re.compile(r"\d")
+
+# Phrasing that asks "how much am I risking" — a quantity question, not a concept.
+_RISK_QUANTITY = re.compile(
+    r"\b(?:my\s+(?:max(?:imum)?\s+)?risk|am\s+i\s+risking|risking|risk\s+amount|"
+    r"max(?:imum)?\s+risk|capital\s+at\s+risk|how\s+much\s+money|how\s+much\s+(?:do\s+)?i\s+risk|"
+    r"\d+(?:\.\d+)?\s*%\s*risk|risk\s+of\s+\d|risk\s+per\s+trade)\b",
+    re.IGNORECASE,
+)
+
 
 # Educational / definitional phrasing.
 _CONCEPTUAL = re.compile(
