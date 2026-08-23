@@ -49,6 +49,17 @@ _RISK_QUANTITY = re.compile(
     re.IGNORECASE,
 )
 
+# Explicitly asks for a risk *quantity* about the trader's own account, even with
+# no numbers present ("what is my maximum risk?"). Never matches plain concept
+# questions such as "what is risk reward".
+_RISK_QUANTITY_STRONG = re.compile(
+    r"\b(?:my\s+(?:max(?:imum)?\s+|daily\s+|total\s+)?risk|am\s+i\s+risking|"
+    r"risk\s+amount|capital\s+at\s+risk|how\s+much\s+(?:do\s+)?i\s+risk|"
+    r"how\s+much\s+money\s+(?:am|do)\s+i|risk\s+per\s+trade)\b",
+    re.IGNORECASE,
+)
+
+
 
 # Educational / definitional phrasing.
 _CONCEPTUAL = re.compile(
@@ -118,6 +129,7 @@ class Signals:
     money: bool
     numbers: bool
     risk_quantity: bool = False
+    risk_quantity_strong: bool = False
 
     @property
     def computational(self) -> bool:
@@ -127,6 +139,7 @@ class Signals:
             or self.levels
             or (self.percent and self.money)
             or (self.risk_quantity and self.numbers)
+            or self.risk_quantity_strong
         )
 
     def to_dict(self) -> Dict[str, bool]:
@@ -137,6 +150,7 @@ class Signals:
             "risk_percent": self.percent,
             "money": self.money,
             "risk_quantity": self.risk_quantity,
+            "risk_quantity_strong": self.risk_quantity_strong,
         }
 
 
@@ -149,7 +163,9 @@ def extract_signals(text: str) -> Signals:
         money=bool(_MONEY.search(text)),
         numbers=bool(_NUMBER.search(text)),
         risk_quantity=bool(_RISK_QUANTITY.search(text)),
+        risk_quantity_strong=bool(_RISK_QUANTITY_STRONG.search(text)),
     )
+
 
 
 
@@ -224,6 +240,11 @@ class Router:
         # "how much am I risking" style quantity questions with numbers present.
         if signals.risk_quantity and (signals.percent or signals.money) and not signals.levels:
             bump(Intent.RISK_CALCULATION, 1.0, "risk quantity question")
+        # "what is my maximum risk?" — a quantity question about the trader's own
+        # account, even with no numbers in this message (memory may supply them).
+        if signals.risk_quantity_strong and not signals.levels:
+            bump(Intent.RISK_CALCULATION, 1.5, "personal risk quantity")
+
 
         # A full setup (levels + balance + risk) is an analysis, not a bare calc.
         if signals.levels and signals.percent:
