@@ -240,6 +240,11 @@ class Router:
         # "how much am I risking" style quantity questions with numbers present.
         if signals.risk_quantity and (signals.percent or signals.money) and not signals.levels:
             bump(Intent.RISK_CALCULATION, 1.0, "risk quantity question")
+        # "what is my maximum risk?" — a quantity question about the trader's own
+        # account, even with no numbers in this message (memory may supply them).
+        if signals.risk_quantity_strong and not signals.levels:
+            bump(Intent.RISK_CALCULATION, 1.5, "personal risk quantity")
+
 
         # A full setup (levels + balance + risk) is an analysis, not a bare calc.
         if signals.levels and signals.percent:
