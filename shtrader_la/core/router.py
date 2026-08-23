@@ -49,6 +49,17 @@ _RISK_QUANTITY = re.compile(
     re.IGNORECASE,
 )
 
+# Explicitly asks for a risk *quantity* about the trader's own account, even with
+# no numbers present ("what is my maximum risk?"). Never matches plain concept
+# questions such as "what is risk reward".
+_RISK_QUANTITY_STRONG = re.compile(
+    r"\b(?:my\s+(?:max(?:imum)?\s+|daily\s+|total\s+)?risk|am\s+i\s+risking|"
+    r"risk\s+amount|capital\s+at\s+risk|how\s+much\s+(?:do\s+)?i\s+risk|"
+    r"how\s+much\s+money\s+(?:am|do)\s+i|risk\s+per\s+trade)\b",
+    re.IGNORECASE,
+)
+
+
 
 # Educational / definitional phrasing.
 _CONCEPTUAL = re.compile(
