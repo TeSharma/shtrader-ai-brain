@@ -47,23 +47,52 @@ class PositionSizingEngine(Tool):
             risk_percent = self.positive(
                 self.as_float(kwargs.get("risk_percent"), "risk_percent"), "risk_percent"
             )
-            entry = self.positive(self.as_float(kwargs.get("entry"), "entry"), "entry")
-            stop_loss = self.positive(
-                self.as_float(kwargs.get("stop_loss"), "stop_loss"), "stop_loss"
-            )
         except ValueError as exc:
             return self.fail(str(exc))
 
         if risk_percent > 100:
             return self.fail("'risk_percent' cannot exceed 100")
 
-        distance = abs(entry - stop_loss)
-        if distance == 0:
-            return self.fail("Entry and stop loss cannot be equal — stop distance is zero.")
+        symbol = kwargs.get("symbol")
+        given_pips = kwargs.get("stop_pips")
+        has_levels = kwargs.get("entry") is not None and kwargs.get("stop_loss") is not None
+
+        # Stop distance either from explicit levels, or from a pip distance
+        # ("50 pip stop"), in which case entry is optional and notional is skipped.
+        entry: float | None = None
+        if has_levels:
+            try:
+                entry = self.positive(self.as_float(kwargs.get("entry"), "entry"), "entry")
+                stop_loss = self.positive(
+                    self.as_float(kwargs.get("stop_loss"), "stop_loss"), "stop_loss"
+                )
+            except ValueError as exc:
+                return self.fail(str(exc))
+            distance = abs(entry - stop_loss)
+            if distance == 0:
+                return self.fail("Entry and stop loss cannot be equal — stop distance is zero.")
+        elif given_pips is not None:
+            try:
+                pips = self.positive(self.as_float(given_pips, "stop_pips"), "stop_pips")
+            except ValueError as exc:
+                return self.fail(str(exc))
+            distance = pips * pip_size_for(symbol)
+            if kwargs.get("entry") is not None:
+                try:
+                    entry = self.positive(self.as_float(kwargs.get("entry"), "entry"), "entry")
+                except ValueError as exc:
+                    return self.fail(str(exc))
+        else:
+            return self.fail(
+                "Need either 'entry' and 'stop_loss', or a stop distance in pips "
+                "('stop_pips')."
+            )
 
         risk_amount = balance * (risk_percent / 100.0)
-        symbol = kwargs.get("symbol")
-        method = (kwargs.get("method") or ("forex" if _looks_like_forex(symbol) else "linear")).lower()
+        method = (
+            kwargs.get("method")
+            or ("forex" if (_looks_like_forex(symbol) or given_pips is not None) else "linear")
+        ).lower()
 
         assumptions: list[str] = []
         data: Dict[str, Any]
@@ -71,6 +100,7 @@ class PositionSizingEngine(Tool):
         if method == "forex":
             pip = pip_size_for(symbol)
             stop_pips = distance / pip
+
             pip_value_per_lot = kwargs.get("pip_value_per_lot")
             if pip_value_per_lot is None:
                 pip_value_per_lot = 10.0
@@ -97,7 +127,7 @@ class PositionSizingEngine(Tool):
                 "lots": round(lots, 4),
                 "micro_lots": round(lots * 100, 1),
                 "units": round(units, 2),
-                "notional": round(units * entry, 2),
+                "notional": round(units * entry, 2) if entry is not None else None,
             }
             explanation = (
                 f"Risk {risk_amount:,.2f} over {stop_pips:.1f} pips at "
@@ -109,7 +139,7 @@ class PositionSizingEngine(Tool):
                 "method": "linear",
                 "stop_distance": round(distance, 8),
                 "units": round(units, 8),
-                "notional": round(units * entry, 2),
+                "notional": round(units * entry, 2) if entry is not None else None,
             }
             explanation = (
                 f"Risk {risk_amount:,.2f} / stop distance {distance:g} -> "
@@ -117,7 +147,7 @@ class PositionSizingEngine(Tool):
             )
 
         leverage = kwargs.get("leverage")
-        if leverage is not None:
+        if leverage is not None and data.get("notional") is not None:
             try:
                 leverage = self.positive(self.as_float(leverage, "leverage"), "leverage")
             except ValueError as exc:

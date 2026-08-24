@@ -122,10 +122,11 @@ class Orchestrator:
         if idea is not None:
             parsed = idea.to_dict()
             for key in ("symbol", "side", "entry", "stop_loss", "take_profit",
-                        "risk_percent", "account_balance"):
+                        "risk_percent", "account_balance", "stop_pips"):
                 value = parsed.get(key)
                 if value is not None:
                     merged[key] = value
+
 
         for key, value in (request_context or {}).items():
             if value is not None:
@@ -154,15 +155,25 @@ class Orchestrator:
                 "risk_percent": context["risk_percent"],
             }
         if name == "position_sizing":
-            required = ("account_balance", "risk_percent", "entry", "stop_loss")
-            if any(context.get(key) is None for key in required):
+            if context.get("account_balance") is None or context.get("risk_percent") is None:
                 return None
-            return {key: context[key] for key in required} | {
+            has_levels = (
+                context.get("entry") is not None and context.get("stop_loss") is not None
+            )
+            if not has_levels and context.get("stop_pips") is None:
+                return None
+            return {
+                "account_balance": context["account_balance"],
+                "risk_percent": context["risk_percent"],
+                "entry": context.get("entry"),
+                "stop_loss": context.get("stop_loss"),
+                "stop_pips": context.get("stop_pips"),
                 "symbol": context.get("symbol"),
                 "method": context.get("method"),
                 "pip_value_per_lot": context.get("pip_value_per_lot"),
                 "leverage": context.get("leverage"),
             }
+
         if name == "trade_analysis":
             if context.get("entry") is None or context.get("stop_loss") is None:
                 return None

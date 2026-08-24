@@ -60,6 +60,16 @@ _RISK_QUANTITY_STRONG = re.compile(
 )
 
 
+# Explicit request to size a position ("position size", "how many lots").
+# Note this is a *request* signal, not an action verb: "define position sizing"
+# must stay a concept question, so bare "size"/"sizing" is deliberately absent
+# from _ACTION below.
+_SIZING_REQUEST = re.compile(
+    r"\b(?:position\s+siz(?:e|ing)|lot\s+size|how\s+many\s+(?:lots|units|contracts)|"
+    r"siz(?:e|ing)\s+(?:my|this|the)\s+(?:position|trade|order)|what\s+lot\s+size|"
+    r"size\s+me\b)",
+    re.IGNORECASE,
+)
 
 # Educational / definitional phrasing.
 _CONCEPTUAL = re.compile(
@@ -72,11 +82,12 @@ _CONCEPTUAL = re.compile(
 
 # Compute / evaluate phrasing.
 _ACTION = re.compile(
-    r"\b(?:calculate|calc|compute|work\s+out|size|sizing|size\s+me|how\s+many|"
+    r"\b(?:calculate|calc|compute|work\s+out|how\s+many|"
     r"how\s+much\s+(?:should|to|can)|analyse|analyze|review|evaluate|assess|"
     r"check\s+this|rate\s+this|build\s+me|give\s+me\s+a\s+plan)\b",
     re.IGNORECASE,
 )
+
 
 _KEYWORDS: Dict[Intent, List[str]] = {
     Intent.POSITION_SIZING: [
@@ -130,6 +141,7 @@ class Signals:
     numbers: bool
     risk_quantity: bool = False
     risk_quantity_strong: bool = False
+    sizing_request: bool = False
 
     @property
     def computational(self) -> bool:
@@ -140,6 +152,7 @@ class Signals:
             or (self.percent and self.money)
             or (self.risk_quantity and self.numbers)
             or self.risk_quantity_strong
+            or (self.sizing_request and self.numbers)
         )
 
     def to_dict(self) -> Dict[str, bool]:
@@ -151,6 +164,7 @@ class Signals:
             "money": self.money,
             "risk_quantity": self.risk_quantity,
             "risk_quantity_strong": self.risk_quantity_strong,
+            "sizing_request": self.sizing_request,
         }
 
 
@@ -164,7 +178,9 @@ def extract_signals(text: str) -> Signals:
         numbers=bool(_NUMBER.search(text)),
         risk_quantity=bool(_RISK_QUANTITY.search(text)),
         risk_quantity_strong=bool(_RISK_QUANTITY_STRONG.search(text)),
+        sizing_request=bool(_SIZING_REQUEST.search(text)),
     )
+
 
 
 
@@ -233,22 +249,26 @@ class Router:
                         continue
                     bump(intent, 1.0, phrase)
 
-        if signals.levels:
-            bump(Intent.TRADE_ANALYSIS, 1.5, "price levels")
-        if signals.percent and signals.money:
-            bump(Intent.RISK_CALCULATION, 1.0, "balance + risk %")
-        # "how much am I risking" style quantity questions with numbers present.
-        if signals.risk_quantity and (signals.percent or signals.money) and not signals.levels:
-            bump(Intent.RISK_CALCULATION, 1.0, "risk quantity question")
-        # "what is my maximum risk?" — a quantity question about the trader's own
-        # account, even with no numbers in this message (memory may supply them).
-        if signals.risk_quantity_strong and not signals.levels:
-            bump(Intent.RISK_CALCULATION, 1.5, "personal risk quantity")
+        # An explicit sizing request dominates: the trader supplied levels and a
+        # risk percentage *in order to* get a lot size, not a generic analysis.
+        if signals.sizing_request:
+            bump(Intent.POSITION_SIZING, 2.5, "sizing request")
+        else:
+            if signals.levels:
+                bump(Intent.TRADE_ANALYSIS, 1.5, "price levels")
+            if signals.percent and signals.money:
+                bump(Intent.RISK_CALCULATION, 1.0, "balance + risk %")
+            # "how much am I risking" style quantity questions with numbers.
+            if signals.risk_quantity and (signals.percent or signals.money) and not signals.levels:
+                bump(Intent.RISK_CALCULATION, 1.0, "risk quantity question")
+            # "what is my maximum risk?" — a quantity question about the trader's
+            # own account, even with no numbers here (memory may supply them).
+            if signals.risk_quantity_strong and not signals.levels:
+                bump(Intent.RISK_CALCULATION, 1.5, "personal risk quantity")
+            # A full setup (levels + balance + risk) is an analysis, not a calc.
+            if signals.levels and signals.percent:
+                bump(Intent.TRADE_ANALYSIS, 0.75)
 
-
-        # A full setup (levels + balance + risk) is an analysis, not a bare calc.
-        if signals.levels and signals.percent:
-            bump(Intent.TRADE_ANALYSIS, 0.75)
         # Conceptual phrasing that still carries numbers stays computational,
         # but keep a small educational weight so mixed questions can surface docs.
         if signals.conceptual and signals.computational:
