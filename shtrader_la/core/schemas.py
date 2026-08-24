@@ -44,7 +44,9 @@ class TradeIdea:
     take_profit: Optional[float] = None
     risk_percent: Optional[float] = None
     account_balance: Optional[float] = None
+    stop_pips: Optional[float] = None
     notes: Optional[str] = None
+
 
     def is_complete(self) -> bool:
         return None not in (self.symbol, self.side, self.entry, self.stop_loss, self.take_profit)
