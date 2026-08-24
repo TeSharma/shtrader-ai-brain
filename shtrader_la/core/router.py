@@ -60,6 +60,16 @@ _RISK_QUANTITY_STRONG = re.compile(
 )
 
 
+# Explicit request to size a position ("position size", "how many lots").
+# Note this is a *request* signal, not an action verb: "define position sizing"
+# must stay a concept question, so bare "size"/"sizing" is deliberately absent
+# from _ACTION below.
+_SIZING_REQUEST = re.compile(
+    r"\b(?:position\s+siz(?:e|ing)|lot\s+size|how\s+many\s+(?:lots|units|contracts)|"
+    r"siz(?:e|ing)\s+(?:my|this|the)\s+(?:position|trade|order)|what\s+lot\s+size|"
+    r"size\s+me\b)",
+    re.IGNORECASE,
+)
 
 # Educational / definitional phrasing.
 _CONCEPTUAL = re.compile(
@@ -72,11 +82,12 @@ _CONCEPTUAL = re.compile(
 
 # Compute / evaluate phrasing.
 _ACTION = re.compile(
-    r"\b(?:calculate|calc|compute|work\s+out|size|sizing|size\s+me|how\s+many|"
+    r"\b(?:calculate|calc|compute|work\s+out|how\s+many|"
     r"how\s+much\s+(?:should|to|can)|analyse|analyze|review|evaluate|assess|"
     r"check\s+this|rate\s+this|build\s+me|give\s+me\s+a\s+plan)\b",
     re.IGNORECASE,
 )
+
 
 _KEYWORDS: Dict[Intent, List[str]] = {
     Intent.POSITION_SIZING: [
