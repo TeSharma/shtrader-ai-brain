@@ -141,6 +141,7 @@ class Signals:
     numbers: bool
     risk_quantity: bool = False
     risk_quantity_strong: bool = False
+    sizing_request: bool = False
 
     @property
     def computational(self) -> bool:
@@ -151,6 +152,7 @@ class Signals:
             or (self.percent and self.money)
             or (self.risk_quantity and self.numbers)
             or self.risk_quantity_strong
+            or (self.sizing_request and self.numbers)
         )
 
     def to_dict(self) -> Dict[str, bool]:
@@ -162,6 +164,7 @@ class Signals:
             "money": self.money,
             "risk_quantity": self.risk_quantity,
             "risk_quantity_strong": self.risk_quantity_strong,
+            "sizing_request": self.sizing_request,
         }
 
 
@@ -175,7 +178,9 @@ def extract_signals(text: str) -> Signals:
         numbers=bool(_NUMBER.search(text)),
         risk_quantity=bool(_RISK_QUANTITY.search(text)),
         risk_quantity_strong=bool(_RISK_QUANTITY_STRONG.search(text)),
+        sizing_request=bool(_SIZING_REQUEST.search(text)),
     )
+
 
 
 
