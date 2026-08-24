@@ -216,6 +216,8 @@ def parse_trade_text(text: str) -> TradeIdea:
     idea.take_profit = _claim_by_keyword(text, numbers, "take_profit", _TARGET_WORDS)
     idea.entry = _claim_by_keyword(text, numbers, "entry", _ENTRY_WORDS)
     idea.account_balance = _claim_balance(text, numbers)
+    idea.stop_pips = next((n.value for n in numbers if n.unit == "pips"), None)
+
 
     # Infer side from stop placement when words were absent.
     if idea.side is None and idea.entry is not None and idea.stop_loss is not None:
