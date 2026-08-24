@@ -249,22 +249,26 @@ class Router:
                         continue
                     bump(intent, 1.0, phrase)
 
-        if signals.levels:
-            bump(Intent.TRADE_ANALYSIS, 1.5, "price levels")
-        if signals.percent and signals.money:
-            bump(Intent.RISK_CALCULATION, 1.0, "balance + risk %")
-        # "how much am I risking" style quantity questions with numbers present.
-        if signals.risk_quantity and (signals.percent or signals.money) and not signals.levels:
-            bump(Intent.RISK_CALCULATION, 1.0, "risk quantity question")
-        # "what is my maximum risk?" — a quantity question about the trader's own
-        # account, even with no numbers in this message (memory may supply them).
-        if signals.risk_quantity_strong and not signals.levels:
-            bump(Intent.RISK_CALCULATION, 1.5, "personal risk quantity")
+        # An explicit sizing request dominates: the trader supplied levels and a
+        # risk percentage *in order to* get a lot size, not a generic analysis.
+        if signals.sizing_request:
+            bump(Intent.POSITION_SIZING, 2.5, "sizing request")
+        else:
+            if signals.levels:
+                bump(Intent.TRADE_ANALYSIS, 1.5, "price levels")
+            if signals.percent and signals.money:
+                bump(Intent.RISK_CALCULATION, 1.0, "balance + risk %")
+            # "how much am I risking" style quantity questions with numbers.
+            if signals.risk_quantity and (signals.percent or signals.money) and not signals.levels:
+                bump(Intent.RISK_CALCULATION, 1.0, "risk quantity question")
+            # "what is my maximum risk?" — a quantity question about the trader's
+            # own account, even with no numbers here (memory may supply them).
+            if signals.risk_quantity_strong and not signals.levels:
+                bump(Intent.RISK_CALCULATION, 1.5, "personal risk quantity")
+            # A full setup (levels + balance + risk) is an analysis, not a calc.
+            if signals.levels and signals.percent:
+                bump(Intent.TRADE_ANALYSIS, 0.75)
 
-
-        # A full setup (levels + balance + risk) is an analysis, not a bare calc.
-        if signals.levels and signals.percent:
-            bump(Intent.TRADE_ANALYSIS, 0.75)
         # Conceptual phrasing that still carries numbers stays computational,
         # but keep a small educational weight so mixed questions can surface docs.
         if signals.conceptual and signals.computational:
