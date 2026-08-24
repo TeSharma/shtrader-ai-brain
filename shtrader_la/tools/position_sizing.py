@@ -127,7 +127,7 @@ class PositionSizingEngine(Tool):
                 "lots": round(lots, 4),
                 "micro_lots": round(lots * 100, 1),
                 "units": round(units, 2),
-                "notional": round(units * entry, 2),
+                "notional": round(units * entry, 2) if entry is not None else None,
             }
             explanation = (
                 f"Risk {risk_amount:,.2f} over {stop_pips:.1f} pips at "
@@ -139,7 +139,7 @@ class PositionSizingEngine(Tool):
                 "method": "linear",
                 "stop_distance": round(distance, 8),
                 "units": round(units, 8),
-                "notional": round(units * entry, 2),
+                "notional": round(units * entry, 2) if entry is not None else None,
             }
             explanation = (
                 f"Risk {risk_amount:,.2f} / stop distance {distance:g} -> "
@@ -147,7 +147,7 @@ class PositionSizingEngine(Tool):
             )
 
         leverage = kwargs.get("leverage")
-        if leverage is not None:
+        if leverage is not None and data.get("notional") is not None:
             try:
                 leverage = self.positive(self.as_float(leverage, "leverage"), "leverage")
             except ValueError as exc:
