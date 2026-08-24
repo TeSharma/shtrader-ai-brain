@@ -122,10 +122,11 @@ class Orchestrator:
         if idea is not None:
             parsed = idea.to_dict()
             for key in ("symbol", "side", "entry", "stop_loss", "take_profit",
-                        "risk_percent", "account_balance"):
+                        "risk_percent", "account_balance", "stop_pips"):
                 value = parsed.get(key)
                 if value is not None:
                     merged[key] = value
+
 
         for key, value in (request_context or {}).items():
             if value is not None:
