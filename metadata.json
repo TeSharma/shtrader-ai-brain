@@ -2,12 +2,12 @@
   "team_id": "FILL_ME_team_id",
   "domain": "autonomous_ai_agents",
   "language_scope": ["en"],
-  "african_alpha_claim": false,
+  "african_alpha_claim": true,
   "budget_laptop_claim": true,
   "submitter": {
-    "name": "FILL_ME_full_name",
-    "email": "FILL_ME_email@domain.com",
-    "github_handle": "FILL_ME_github_handle"
+    "name": "Aduragbemi Christopher",
+    "email": "tesharma2@gmail.com",
+    "github_handle": "TeSharma"
   },
   "cross_disciplinary_pairing": {
     "discipline": "finance",
