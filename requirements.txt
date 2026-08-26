@@ -1,0 +1,10 @@
+# Shtrader LA core runtime for the local HTTP API.
+# The orchestration core itself is stdlib-only; these are only needed to expose it
+# over HTTP for the web console (and for tests via FastAPI's TestClient).
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.7
+
+# Optional: enable real local language-model reasoning. Omit this to run fully
+# offline with the deterministic StubProvider (no GGUF weights needed).
+# llama-cpp-python>=0.3

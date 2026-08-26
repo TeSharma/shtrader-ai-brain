@@ -1059,3 +1059,33 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Running the web console against the local engine
+
+The chat console talks to the Shtrader LA Python engine over a local FastAPI
+server (`src/lib/la/` is just a typed fetch client — no math is re-implemented
+in TypeScript). Run the two processes in separate terminals:
+
+```sh
+# Terminal 1 — start the Python engine API (port 8000 by default)
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m uvicorn shtrader_la.api.app:app --host 0.0.0.0 --port 8000
+
+# Terminal 2 — start the web console (Vite)
+npm run dev
+```
+
+Endpoints:
+
+- `GET /health` — `{ "status", "provider", "model_active", "mode" }`
+- `POST /api/v1/chat` — body `{ "query", "session_id" }`, returns the agent's
+  `intent`, `answer`, `structured`, `tool_results`, `knowledge`, `recommendations`
+  and `disclaimer`.
+
+The engine runs fully offline with its deterministic `StubProvider` by default —
+no GGUF weights or internet needed. To use a real local model, drop a `.gguf`
+into `model/`, install `llama-cpp-python`, and restart.
+
+If the console can't reach the API, chat shows a clear "local agent offline"
+message with the exact command to start the server. Override the API address at
+dev time with `VITE_SHTRADER_API_URL` (default `http://127.0.0.1:8000`).

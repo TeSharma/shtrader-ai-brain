@@ -26,6 +26,10 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
+import {
+  LocalAgentOfflineError,
+  sendMessage as sendToEngine,
+} from "../lib/la/client";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -39,6 +43,8 @@ type Message = {
 function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
+  const [engineError, setEngineError] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -48,25 +54,38 @@ function Index() {
     },
   ]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const text = input.trim();
 
-    if (!text) return;
+    if (!text || isThinking) return;
 
-    setMessages((current) => [
-      ...current,
-      {
-        role: "user",
-        content: text,
-      },
-      {
-        role: "assistant",
-        content:
-          "Your request has been received. The Shtrader LA intelligence engine is ready to process this request once the API connection is enabled.",
-      },
-    ]);
-
+    setMessages((current) => [...current, { role: "user", content: text }]);
     setInput("");
+    setIsThinking(true);
+    setEngineError(null);
+
+    try {
+      const response = await sendToEngine(text, "web-console");
+      const answer = response.disclaimer
+        ? `${response.answer}\n\n${response.disclaimer}`
+        : response.answer;
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", content: answer },
+      ]);
+    } catch (error) {
+      const message =
+        error instanceof LocalAgentOfflineError
+          ? error.message
+          : "Something went wrong while contacting the Shtrader LA engine.";
+      setEngineError(message);
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", content: message },
+      ]);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   return (
@@ -298,6 +317,15 @@ function Index() {
                         </div>
                       </div>
                     ))}
+
+                    {isThinking && (
+                      <div className="flex justify-start">
+                        <div className="flex max-w-[85%] items-center gap-2 rounded-2xl border border-white/[0.07] bg-[#10141b] px-4 py-3.5 text-sm text-[#737b87]">
+                          <span className="h-2 w-2 animate-pulse rounded-full bg-[#d7ff5f]" />
+                          Analysing with the Shtrader LA engine…
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Suggested prompts */}
@@ -346,6 +374,13 @@ function Index() {
               {/* INPUT */}
               <div className="border-t border-white/[0.07] bg-[#0a0d12] p-4 sm:p-5">
                 <div className="mx-auto max-w-3xl">
+                  {engineError && (
+                    <div className="mb-3 rounded-lg border border-[#d47a7a]/25 bg-[#d47a7a]/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-[#e0a7a7]">
+                      <span className="font-medium">Local agent offline.</span>{" "}
+                      {engineError}
+                    </div>
+                  )}
+
                   <div className="rounded-2xl border border-white/[0.09] bg-[#10141b] p-2 shadow-2xl shadow-black/20">
                     <textarea
                       value={input}
