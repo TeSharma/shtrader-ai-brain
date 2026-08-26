@@ -14,7 +14,8 @@ Design invariants (mirrored from the core):
 
 from __future__ import annotations
 
-from typing import Any, Dict
+import os
+from typing import Any, Dict, List
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,9 +24,17 @@ from ..core.orchestrator import Orchestrator
 from ..core.schemas import AgentRequest
 from .schemas import ChatRequest, HealthResponse
 
-# Allow the Vite/TanStack dev server (and any configured frontend origin) to call
-# this local API from the browser.
-DEFAULT_ALLOWED_ORIGINS = ("http://localhost:5173", "http://localhost:3000")
+# This is a local, offline, no-auth tool. The Vite dev server and Lovable previews
+# may serve the page from any localhost port or proxied domain, so we allow any
+# origin by default (mirrored as `Access-Control-Allow-Origin: *` when requests
+# carry no credentials). A hosted build can pin specific origins via the
+# SHTRADER_API_ALLOWED_ORIGINS env var (comma-separated).
+def _allowed_origins() -> List[str]:
+    raw = os.environ.get("SHTRADER_API_ALLOWED_ORIGINS", "").strip()
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return ["*"]
+
 
 _name = "shtrader-la-api"
 
@@ -33,8 +42,8 @@ app = FastAPI(title="Shtrader LA Local API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(DEFAULT_ALLOWED_ORIGINS),
-    allow_credentials=True,
+    allow_origins=_allowed_origins(),
+    allow_credentials=True if _allowed_origins() != ["*"] else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

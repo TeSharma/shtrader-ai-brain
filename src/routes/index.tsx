@@ -25,9 +25,10 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LocalAgentOfflineError,
+  getHealth,
   sendMessage as sendToEngine,
 } from "../lib/la/client";
 
@@ -45,6 +46,24 @@ function Index() {
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [engineError, setEngineError] = useState<string | null>(null);
+  // "checking" | "online" | "offline"
+  const [engineStatus, setEngineStatus] = useState<"checking" | "online" | "offline">(
+    "checking",
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    getHealth()
+      .then(() => {
+        if (!cancelled) setEngineStatus("online");
+      })
+      .catch(() => {
+        if (!cancelled) setEngineStatus("offline");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -178,14 +197,38 @@ function Index() {
             <div className="border-t border-white/[0.07] p-4">
               <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#d7ff5f] shadow-[0_0_10px_rgba(215,255,95,0.7)]" />
-                  <span className="text-xs font-medium">Engine ready</span>
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      engineStatus === "online"
+                        ? "bg-[#d7ff5f] shadow-[0_0_10px_rgba(215,255,95,0.7)]"
+                        : engineStatus === "checking"
+                          ? "bg-[#8b929e]"
+                          : "bg-[#d47a7a]"
+                    }`}
+                  />
+                  <span className="text-xs font-medium">
+                    {engineStatus === "online"
+                      ? "Engine ready"
+                      : engineStatus === "checking"
+                        ? "Checking engine…"
+                        : "Engine offline"}
+                  </span>
                 </div>
 
                 <div className="mt-2 text-[11px] leading-relaxed text-[#717986]">
-                  Deterministic tools online
-                  <br />
-                  Local model awaiting weights
+                  {engineStatus === "online" ? (
+                    <>
+                      Deterministic tools online
+                      <br />
+                      Local model awaiting weights
+                    </>
+                  ) : (
+                    <>
+                      Run <span className="text-[#a9c957]">npm run start:all</span>
+                      <br />
+                      to start the local API
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -294,6 +337,18 @@ function Index() {
                       Ask about a setup, calculate your risk, size a position,
                       build a trading plan, or learn a trading concept.
                     </p>
+
+                    {engineStatus === "offline" && (
+                      <div className="mt-5 rounded-lg border border-[#d47a7a]/25 bg-[#d47a7a]/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-[#e0a7a7]">
+                        <span className="font-medium">Engine offline.</span>{" "}
+                        Start the local agent with{" "}
+                        <code className="rounded bg-black/20 px-1 py-0.5 font-mono text-[10px]">
+                          npm run start:all
+                        </code>{" "}
+                        (boots the Python API + web console together), then
+                        reload this page. No internet or model download is needed.
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-5">

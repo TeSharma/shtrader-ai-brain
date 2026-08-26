@@ -23,8 +23,12 @@ function getBaseUrl(): string {
 export class LocalAgentOfflineError extends Error {
   constructor() {
     super(
-      "The local Shtrader LA engine is not running. Start it with: " +
-        ".venv\\Scripts\\python -m uvicorn shtrader_la.api.app:app --host 0.0.0.0 --port 8000",
+      "The local Shtrader LA engine is not running. Start it with " +
+        "`npm run start:all` (or in a separate terminal: " +
+        ".venv\\Scripts\\python -m uvicorn shtrader_la.api.app:app " +
+        "--host 0.0.0.0 --port 8000). If it is already running, confirm you " +
+        "can open http://127.0.0.1:8000/health in the browser — a failed load " +
+        "usually means the engine isn't up yet.",
     );
     this.name = "LocalAgentOfflineError";
   }
