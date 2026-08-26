@@ -384,7 +384,7 @@ function Index() {
                   </div>
 
                   <div className="mt-2 text-center text-[10px] text-[#505762]">
-                    Shtrader LA is informational only and never executes trades.
+                    
                   </div>
                 </div>
               </div>
