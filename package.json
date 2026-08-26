@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "engine": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_local.ps1",
-    "start:all": "concurrently -k -n engine,web -c green,cyan \"npm run engine\" \"npm run dev\""
+    "start:all": "concurrently --kill-others-on-fail --names engine,web --prefix-colors green,cyan \"npm run engine\" \"npm run dev\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
