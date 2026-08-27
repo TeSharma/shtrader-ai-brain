@@ -28,8 +28,10 @@ import {
 import { useEffect, useState } from "react";
 import {
   LocalAgentOfflineError,
+  getBaseUrl,
   getHealth,
   sendMessage as sendToEngine,
+  setEngineBaseUrl,
 } from "../lib/la/client";
 
 export const Route = createFileRoute("/")({
@@ -50,6 +52,7 @@ function Index() {
   const [engineStatus, setEngineStatus] = useState<"checking" | "online" | "offline">(
     "checking",
   );
+  const [engineUrlInput, setEngineUrlInput] = useState(getBaseUrl());
 
   useEffect(() => {
     let cancelled = false;
@@ -473,8 +476,38 @@ function Index() {
                     </div>
                   </div>
 
-                  <div className="mt-2 text-center text-[10px] text-[#505762]">
-                    
+                  <div className="mt-2 flex flex-col items-center gap-1.5 text-[10px] text-[#505762] sm:flex-row sm:justify-between">
+                    <span>Engine endpoint</span>
+                    <span className="flex items-center gap-1.5">
+                      <input
+                        value={engineUrlInput}
+                        onChange={(event) => setEngineUrlInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            setEngineBaseUrl(engineUrlInput);
+                            setEngineStatus("checking");
+                            getHealth()
+                              .then(() => setEngineStatus("online"))
+                              .catch(() => setEngineStatus("offline"));
+                          }
+                        }}
+                        spellCheck={false}
+                        className="w-52 rounded border border-white/[0.08] bg-[#0f1319] px-2 py-1 font-mono text-[10px] text-[#9da4ae] outline-none focus:border-[#d7ff5f]/40"
+                        aria-label="Engine API base URL"
+                      />
+                      <button
+                        onClick={() => {
+                          setEngineBaseUrl(engineUrlInput);
+                          setEngineStatus("checking");
+                          getHealth()
+                            .then(() => setEngineStatus("online"))
+                            .catch(() => setEngineStatus("offline"));
+                        }}
+                        className="rounded border border-white/[0.08] bg-[#10141b] px-2 py-1 text-[10px] text-[#9da4ae] transition hover:border-[#d7ff5f]/40 hover:text-white"
+                      >
+                        Apply
+                      </button>
+                    </span>
                   </div>
                 </div>
               </div>

@@ -6,17 +6,28 @@
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = Join-Path $PSScriptRoot ".."
-$Python = Join-Path $RepoRoot ".venv\Scripts\python.exe"
 $BindAddress = "0.0.0.0"
 $Port = 8000
 $Probe = "http://127.0.0.1:$Port/health"
-
-if (-not (Test-Path $Python)) {
-    Write-Error "Python venv not found at $Python. Create it first, e.g.:
-    python -m venv .venv
-    .venv\Scripts\python -m pip install -r requirements.txt"
+$Python = $null
+foreach ($candidate in @(".venv312", ".venv")) {
+    $candidateExe = Join-Path $RepoRoot "$candidate/Scripts/python.exe"
+    if (Test-Path $candidateExe) {
+        $Python = $candidateExe
+        break
+    }
+}
+if (-not $Python) {
+    $systemPython = (Get-Command python -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1)
+    if ($systemPython) { $Python = $systemPython }
+}
+if (-not $Python) {
+    Write-Error "Python not found. Create the project venv first, e.g.:
+    python -m venv .venv312
+    .venv312/Scripts/python -m pip install -r requirements.txt"
     exit 1
 }
+
 
 # If our engine is already serving /health on this port (leftover from an earlier
 # run or another `npm run engine`), do NOT spin up a duplicate uvicorn. Duplicate
@@ -35,9 +46,18 @@ try {
 
 $Requirements = Join-Path $RepoRoot "requirements.txt"
 # Best-effort: ensure the API deps are present. Fails fast if python can't import them.
-& $Python -c "import fastapi,uvicorn,pydantic" 2>$null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Installing requirements.txt into .venv ..." -ForegroundColor Cyan
+# The stderr redirect needs try/catch: under $ErrorActionPreference = "Stop",
+# Windows PowerShell 5.1 turns native stderr output (the ImportError traceback)
+# into a terminating NativeCommandError before the installer below could run.
+$depsOk = $true
+try {
+    & $Python -c "import fastapi,uvicorn,pydantic" 2>$null
+    if ($LASTEXITCODE -ne 0) { $depsOk = $false }
+} catch {
+    $depsOk = $false
+}
+if (-not $depsOk) {
+    Write-Host "Installing requirements.txt into the venv ..." -ForegroundColor Cyan
     & $Python -m pip install -r $Requirements
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }

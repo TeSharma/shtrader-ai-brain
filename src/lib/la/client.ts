@@ -1,34 +1,58 @@
 /**
- * Fetch client for the local Shtrader LA HTTP API.
+ * Fetch client for the Shtrader LA HTTP API (FastAPI engine).
  *
- * The console talks to the Python engine running on a local FastAPI server
- * (default `http://127.0.0.1:8000`). Override the address with the
- * `VITE_SHTRADER_API_URL` env var. Everything is offline — no cloud AI is
- * called; a missing local server surfaces as a clear `LocalAgentOfflineError`.
+ * The console talks to the Python engine over HTTP. Resolution order:
+ *   1. a runtime override persisted across reloads (setEngineBaseUrl),
+ *   2. the `VITE_SHTRADER_API_URL` env var baked in at build time,
+ *   3. a stable default.
+ *
+ * The default points at the local engine (`npm run start:all`). When the console
+ * is deployed (e.g. the Lovable preview), point it at the *public* hosted engine
+ * URL by configuring `VITE_SHTRADER_API_URL` at build time or by using the in-app
+ * endpoint setting at runtime. Everything is offline-capable: the engine's
+ * deterministic `StubProvider` needs no model, and no cloud AI is called.
  */
 
 import type { ShtraderAgentResponse, ShtraderHealth } from "./types";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8000";
+const STORAGE_KEY = "shtrader.engineUrl";
 
-function getBaseUrl(): string {
-  const fromEnv =
-    (import.meta.env["VITE_SHTRADER_API_URL"] as string | undefined) ?? "";
-  if (fromEnv.trim().length > 0) {
-    return fromEnv.replace(/\/+$/, "");
+function normalize(raw: string | undefined): string {
+  const value = (raw ?? "").trim().replace(/\/+$/, "");
+  return value;
+}
+
+/** Resolve the engine base URL from runtime override, then env, then default. */
+export function getBaseUrl(): string {
+  if (typeof localStorage !== "undefined") {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const norm = normalize(stored ?? "");
+    if (norm) return norm;
   }
-  return DEFAULT_BASE_URL;
+  const fromEnv = (import.meta.env["VITE_SHTRADER_API_URL"] as string | undefined) ?? "";
+  return normalize(fromEnv) || DEFAULT_BASE_URL;
+}
+
+/** Persist a runtime override for the engine base URL. Pass "" to reset. */
+export function setEngineBaseUrl(url: string): void {
+  if (typeof localStorage === "undefined") return;
+  const norm = normalize(url);
+  if (norm) {
+    localStorage.setItem(STORAGE_KEY, norm);
+  } else {
+    localStorage.removeItem(STORAGE_KEY);
+  }
 }
 
 export class LocalAgentOfflineError extends Error {
   constructor() {
     super(
-      "The local Shtrader LA engine is not running. Start it with " +
-        "`npm run start:all` (or in a separate terminal: " +
-        ".venv\\Scripts\\python -m uvicorn shtrader_la.api.app:app " +
-        "--host 0.0.0.0 --port 8000). If it is already running, confirm you " +
-        "can open http://127.0.0.1:8000/health in the browser — a failed load " +
-        "usually means the engine isn't up yet.",
+      "The Shtrader LA engine is not reachable at " +
+        `${getBaseUrl()}. For a local console run ` +
+        "`npm run start:all` and open http://localhost:8080. For the deployed " +
+        "preview, the console must point at a publicly hosted engine URL — " +
+        "check the engine endpoint setting and confirm the engine is running.",
     );
     this.name = "LocalAgentOfflineError";
   }

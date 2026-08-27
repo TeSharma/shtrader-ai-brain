@@ -1,0 +1,20 @@
+# Keep the engine image small — nothing here is needed at runtime.
+# This applies when building any Dockerfile with the repo root as context.
+node_modules/
+.venv/
+.venv312/
+.output/
+.tanstack/
+.wrangler/
+.pytest_cache/
+__pycache__/
+*.pyc
+model/
+adtc-profiler-source/
+wheel-test/
+public/
+src/
+tests/
+.git/
+.devit/
+.nitrous/
